@@ -1,0 +1,34 @@
+# dsh-aotjit-compare：AOT / JIT 行为对拍。
+#
+# 插件只注册一个工具 aotjit_compare：同一组用例分别启动 AOT 可执行文件与 JIT 命令，
+# 逐字段比较 stdout、exit code（可选 stderr、声明式文件副作用），返回每行是否 match
+# 以及第一处不一致的用例与字段。
+#
+# 加载阶段不做任何探测、不 spawn、不读工作目录：aotExe / jitSpec.cmd 都在每次调用时解析，
+# 解析不到就返回 ok:false + 中文 hint（绝不抛异常）。插件不注册后台任务、不定时器，
+# 也没有跨调用状态（每次调用一个 runId，日志另外落盘）。
+#
+# 配置项（全部可选，缺失时用 lib/config.js 里的默认值）：
+#   timeoutMs            每个进程的超时，默认 120000
+#   maxOutputBytes       每个 stdout/stderr 流保留的字节上限，默认 1048576
+#   maxCases             单次调用最多用例数，默认 100
+#   maxSideEffectBytes   单个副作用文件/目录快照上限，默认 16777216
+#   logDir               日志目录（相对会话 cwd），默认 .aotjit-logs
+#   compare.stdout       是否比较 stdout，默认 true
+#   compare.exit         是否比较 exit code，默认 true
+#   compare.stderr       off / normalized / strict，默认 off
+#   compare.sideEffects  是否启用文件副作用比较，默认 false
+- insert:
+    - id: aotjit-compare
+      name: 'dsh-aotjit-compare'
+      config:
+        timeoutMs: 120000
+        maxOutputBytes: 1048576
+        maxCases: 100
+        maxSideEffectBytes: 16777216
+        logDir: .aotjit-logs
+        compare:
+          stdout: true
+          exit: true
+          stderr: 'off'
+          sideEffects: false

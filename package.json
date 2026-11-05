@@ -1,0 +1,43 @@
+{
+  "name": "dsh-aotjit-compare",
+  "version": "0.1.0",
+  "description": "AOT/JIT 对拍：同一组用例分别跑 AOT 可执行文件与 JIT 命令，逐字段比较 stdout、exit（可选 stderr、文件副作用），给出第一处不一致",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-rc.5 <0.3.0-0"
+  },
+  "scripts": {
+    "test": "node --test --test-isolation=none test/normalize.test.mjs test/compare.test.mjs test/exec.test.mjs test/sidefx.test.mjs test/config.test.mjs test/tools.test.mjs test/plugin.test.mjs",
+    "smoke": "node test/smoke.mjs",
+    "integration": "node test/integration.real.mjs"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "aot",
+    "jit",
+    "parity",
+    "llvm",
+    "mlir"
+  ],
+  "license": "MIT",
+  "author": "Rcyc-1025",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+# 测试与运行产生的临时目录
+.tmp/
+.aotjit-logs/
+node_modules/
+
+# 副作用隔离目录
+.aotjit/
