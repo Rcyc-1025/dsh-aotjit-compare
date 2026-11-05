@@ -22,7 +22,8 @@
   "scripts": {
     "test": "node --test --test-isolation=none test/normalize.test.mjs test/compare.test.mjs test/exec.test.mjs test/sidefx.test.mjs test/config.test.mjs test/tools.test.mjs test/plugin.test.mjs",
     "smoke": "node test/smoke.mjs",
-    "integration": "node test/integration.real.mjs"
+    "integration": "node test/integration.real.mjs",
+    "integration:parity": "node test/integration.parity.mjs"
   },
   "keywords": [
     "dsh",
