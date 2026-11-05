@@ -65,7 +65,7 @@ D:\exe\DSH\resources\runtime\cli\bin\dsh.cmd plugin --profile desktop add D:\wor
 | `timeoutMs` | integer | 覆盖配置的逐进程超时 |
 | `maxOutputBytes` | integer | 覆盖配置的每流上限 |
 | `workDir` | string | 相对路径与默认 cwd 的基准，默认会话 cwd，必须存在 |
-| `compare` | object\|boolean | 覆盖配置的比较项；`false` 表示一次关掉全部比较 |
+| `compare` | object | 覆盖配置的比较项（工具 schema 只收对象；插件配置里可写 `false` 一次关掉全部比较） |
 | `normalize` | object | 覆盖配置的归一化 |
 | `tag` | string | 日志文件名标签 |
 | `saveArtifacts` | boolean | 本次是否另存完整输出 |
@@ -154,7 +154,8 @@ compare: {
 
 - `paths` 必填，相对运行目录，**禁止绝对路径与 `..` 逃逸**（否则 `SIDE_EFFECT_ESCAPE`）。
 - `mode`：`hash`（默认，比 SHA-256）、`content`（比内容并给首个不同行）、`tree`（递归目录树）。
-- `isolate: true`（默认）：AOT 与 JIT 各跑在 `<workDir>/.aotjit/<runId>/<caseIndex>-aot|jit`，`seed` 里的文件从 `workDir` 复制进两侧。这样 AOT 写的文件 JIT 看不到，副作用才算「各自产生的」。
+- `isolate: true`（默认）：AOT 与 JIT 各跑在 `<workDir>/.aotjit/<runId>/<caseIndex>-aot|jit`，`seed` 里的文件/目录从 `workDir` 复制进两侧。这样 AOT 写的文件 JIT 看不到，副作用才算「各自产生的」。一次调用结束后（无论成功、失败还是中途 break）整棵 `<workDir>/.aotjit/<runId>/` 会被清掉；清理失败只进 `warnings[]`。
+- `seed` 的字节数按**展开后**统计（目录会递归累加），AOT/JIT 两侧合计受 `maxSideEffectBytes` 约束。
 - 超过 `maxSideEffectBytes` → `SIDE_EFFECT_TOO_LARGE`；复制 seed 失败 → `SIDE_EFFECT_COPY_FAILED`。
 
 ## 日志
@@ -187,18 +188,19 @@ compare: {
 ## 验证
 
 ```powershell
-npm test            # 84 个单测（node --test，无真实进程）
-npm run smoke       # 假 subprocess 走通「加载 → 调用 → 日志 → 渲染」
-npm run integration # 8 条真机用例（真实 exe + cmd.exe，需要能 spawn 的宿主环境）
+npm test                 # 85 个单测（node --test，无真实进程）
+npm run smoke            # 假 subprocess 走通「加载 → 调用 → 日志 → 渲染」
+npm run integration      # 8 条真机用例（真实 exe + cmd.exe，需要能 spawn 的宿主环境）
+npm run integration:parity # 10 用例夹具 + 注入错误（需要 toyc 与 clang++）
 ```
 
 `npm run integration` 用 `node:child_process` 冒充宿主 subprocess，在真实进程上验证：S-01 单用例全一致、stdout 差异定位、超时、截断、文件副作用与隔离、JIT 命令缺失、`.cmd` 包装器拒绝。DSH 的 workspace-write 沙箱里 Node 自己 spawn 会 `EPERM`，所以它要在宿主侧运行（插件本身在宿主里走 `ctx.subprocess`，不受影响）。
 
-其余真机验收按规格 6.1 的 10 用例形态（`examples/parity/` + `build/parity/` + `toyc-buggy.exe`）需要构建侧配合：
+`npm run integration:parity` 覆盖规格 6.1 的 ②③：仓库自带 `test/fixtures/parity/case-01..10.mlir`，脚本用 `toyc --emit=exe` 现场生成 AOT 可执行文件、`--emit=run` 跑 JIT 侧，断言 10/10 全一致；随后只改 case-05 的打印值（退出码不变）当作注入错误，断言 `firstMismatchCase:"case-05"`、`firstMismatchField:"stdout"`、`100` vs `101`、其余 9 行仍 `match:true`。工具链默认读 mlir-lang 的 `build/toyc.exe` 与 LLVM 23.1.4 的 `clang++.exe`，可用 `AOTJIT_TOYC` / `AOTJIT_CLANG` 覆盖；缺工具时打印 `SKIP` 并以 0 退出。
 
-1. **S-01 单用例**：`aotExe=build/s01/add.exe`、`jitSpec={cmd:build/toyc.exe,args:["examples/add.mul.mlir","--emit=run"]}`、`cases:[{name:"add.mul"}]` → `allMatch:true`，两侧 `stdout="7\n"`、`exitCode=9`。
-2. **10 用例**：`examples/parity/case-01..10.mlir` + `build/parity/case-01..10.exe`，`cases[].jitArgs` 逐个覆盖 → `10/10`。
-3. **注入错误**：把 `toyc-buggy.exe`（常量 +1）作为 `jitSpec.cmd` → `firstMismatchCase` 指向被改坏的用例、`firstMismatchField:"stdout"`，其余 9 行 `match:true`。
+> 注入必须只改 stdout：字段优先级是 `exit` 早于 `stdout`，若同时改掉退出码，正确的结果就是 `firstMismatchField:"exit"`。
+
+S-01 单用例（规格 6.1①）的真机形态：`aotExe=build/s01/add.exe`、`jitSpec={cmd:build/toyc.exe,args:["examples/add.mul.mlir","--emit=run"]}`、`cases:[{name:"add.mul"}]` → `allMatch:true`，两侧 `stdout="7\n"`、`exitCode=9`。
 
 ## 实现拆分
 

@@ -171,3 +171,40 @@ test('prepareIsolation：seed 不存在 → SIDE_EFFECT_COPY_FAILED', () => {
     rmSync(work, { recursive: true, force: true });
   }
 });
+
+test('prepareIsolation：目录 seed 按展开后总字节计入 maxSideEffectBytes', () => {
+  const work = makeWorkDir();
+  try {
+    // 单个文件 8 字节，目录里放两个 → 展开 16 字节；两侧各复制一份 → 合计 32。
+    mkdirSync(join(work, 'inputs', 'nested'), { recursive: true });
+    writeFileSync(join(work, 'inputs', 'a.bin'), 'aaaaaaaa', 'utf8');
+    writeFileSync(join(work, 'inputs', 'nested', 'b.bin'), 'bbbbbbbb', 'utf8');
+
+    // 预算 20：单侧 16 已接近，两侧 32 超限 → 必须报 SIDE_EFFECT_TOO_LARGE。
+    const tooSmall = prepareIsolation({
+      workDir: work,
+      runId: 'run3',
+      caseIndex: 1,
+      seed: ['inputs'],
+      maxBytes: 20,
+    });
+    assert.equal(tooSmall.ok, false);
+    assert.equal(tooSmall.error.code, 'SIDE_EFFECT_TOO_LARGE');
+    assert.equal(existsSync(join(work, '.aotjit', 'run3')), false);
+
+    // 预算 64：够用，目录结构原样复制到两侧。
+    const prepared = prepareIsolation({
+      workDir: work,
+      runId: 'run4',
+      caseIndex: 2,
+      seed: ['inputs'],
+      maxBytes: 64,
+    });
+    assert.equal(prepared.ok, true);
+    assert.equal(existsSync(join(prepared.aotDir, 'inputs', 'nested', 'b.bin')), true);
+    assert.equal(existsSync(join(prepared.jitDir, 'inputs', 'a.bin')), true);
+    cleanupIsolation(work, 'run4');
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+});

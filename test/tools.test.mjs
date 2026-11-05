@@ -289,6 +289,8 @@ test('executePlan：sideEffects 内容不同 → firstMismatch sideEffects，且
     assert.equal(diff.expected, '7');
     assert.equal(diff.actual, '8');
     assert.notEqual(result.rows[0].isolation.aot, result.rows[0].isolation.jit);
+    // 一次调用结束后隔离根目录必须被清掉（否则 workDir/.aotjit 会随运行次数累积）。
+    assert.equal(existsSync(join(work, '.aotjit', prepared.plan.runId)), false);
   } finally {
     rmSync(work, { recursive: true, force: true });
   }
