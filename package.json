@@ -35,6 +35,14 @@
   ],
   "license": "MIT",
   "author": "Rcyc-1025",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rcyc-1025/dsh-aotjit-compare.git"
+  },
+  "homepage": "https://github.com/Rcyc-1025/dsh-aotjit-compare#readme",
+  "bugs": {
+    "url": "https://github.com/Rcyc-1025/dsh-aotjit-compare/issues"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
